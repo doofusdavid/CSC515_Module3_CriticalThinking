@@ -1,8 +1,13 @@
+'''
+Module 3 - Critical Thinking - Option 2
+David Edwards
+CSC515 - Foundations of Computer Vision
+
+'''
 import numpy as np
 import cv2
 import math
 import os
-import uuid
 
 
 def split_image(img):
@@ -15,25 +20,32 @@ def split_image(img):
 
 def face_detection(img, file_name):
 
-    # Use the default
+    # Use the default face/eye classifiers
     face_cascade = cv2.CascadeClassifier(
         "/usr/local/Cellar/opencv/4.5.3_3/share/opencv4/haarcascades/haarcascade_frontalface_default.xml")
     eyes_cascade = cv2.CascadeClassifier(
         "/usr/local/Cellar/opencv/4.5.3_3/share/opencv4/haarcascades/haarcascade_eye.xml")
+
+    # Convert to grayscale
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # Normalize the image
     normalized_img = np.zeros(img_gray.shape, dtype=np.uint8)
     img_gray = cv2.normalize(
         img_gray, normalized_img, 0, 255, cv2.NORM_MINMAX)
 
     # Detect faces
     faces = face_cascade.detectMultiScale(img_gray, 1.05, 5)
+
+    # If there are multiple faces, we want to stop.
+    if len(faces) != 1:
+        print("Wrong number of faces detected")
+        return None
+
     for (x, y, w, h) in faces:
-
-        if len(faces) != 1:
-            print("Wrong number of faces detected")
-            return None
-
+        # Detect eyes
         eyes = eyes_cascade.detectMultiScale(img_gray[y:y + h, x:x + w])
+
+        # If we don't have 2 eyes, we will continue, but can't rotate the image
         if len(eyes) != 2:
             print("Wrong number of eyes - expected 2, got " + str(len(eyes)))
             print("Proceeding with no rotation")
@@ -56,32 +68,36 @@ def face_detection(img, file_name):
             img_rotated = cv2.warpAffine(img, M, (rows, cols))
             img_rotated_gray = cv2.cvtColor(img_rotated, cv2.COLOR_BGR2GRAY)
 
+        # Re-detect face after rotation
         faces = face_cascade.detectMultiScale(img_rotated_gray, 1.05, 5)
-        #cv2.rectangle(img_rotated, (x, y), (x + w, y + h), (200, 0, 200), 1)
+
+        # If there are multiple faces, we want to stop.
+        if len(faces) != 1:
+            print("Wrong number of faces detected")
+            return None
+
         for (x, y, w, h) in faces:
-            if len(faces) != 1:
-                print("Wrong number of faces detected")
-                return None
-            # cv2.rectangle(img_rotated, (x, y),
-            #               (x + w, y + h), (200, 0, 200), 1)
-            roi_gray = img_rotated_gray[y:y + h, x:x + w]
-            roi_color = img_rotated[y:y + h, x:x + w]
-
-            final_img = cv2.resize(roi_gray, (100, 100),
+            # Crop the image to the face size
+            rotated_cropped_gray = img_rotated_gray[y:y + h, x:x + w]
+            # resize to 100x100
+            final_img = cv2.resize(rotated_cropped_gray, (100, 100),
                                    interpolation=cv2.INTER_CUBIC)
-
+            # Write file out
             cv2.imwrite("./img/out/" + file_name + ".jpg", final_img)
 
 
 def show_image(img):
     """
-    Show image
+    Show image (for debugging)
     """
     cv2.imshow("Image", img)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
 
+"""
+    Iterate through img directory and split and process each image
+"""
 if __name__ == "__main__":
     for filename in os.listdir("./img/"):
         if filename.endswith(".jpeg"):
